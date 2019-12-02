@@ -11,34 +11,7 @@ from zipfile import ZipFile
 app = Flask(__name__)
 
 app.config["FILES"] = "..\direct\output"
-
-def process(text,file_name):
-	d0, n0 = direct_non_direct_two_signs(text)
-
-	text = cleaner(n0)
-
-	# Прогоняет 5 раз по регексу
-	res_direct = []
-	res_non_direct = []
-
-	d, n = direct_non_direct_two_signs(text)
-	d1, n1 = direct_non_direct_two_signs(n)
-	d2, n2 = direct_non_direct_two_signs(n1)
-	d3, n3 = direct_non_direct_two_signs(n2)
-	d4, n4 = direct_non_direct_two_signs(n3)
-	d5, n5 = direct_non_direct_one_sign(n4)
-	d6, n6 = direct_non_direct_with_no_n(n5)
-
-	res_direct = d0 + d + d1 + d2 + d3 + d4 + d5 + d6
-	res_non_direct = n6
-
-	# Выдает 20 предположительных выбросов по длине
-	text_outliers = get_outliers(res_direct)
-
-	write_file_direct(res_direct, file_name)
-	write_file_non_direct(res_non_direct, file_name)
-	write_file_outlier(text_outliers, file_name)
-
+app.config["FILES_UPLOAD"] = "..\direct\input"
 
 def allowed(filename):
 	if not "." in filename:
@@ -55,14 +28,23 @@ def index():
 	for i in range(0, len(rem)):
 		os.remove('..\direct\output\\' + rem[i])
 
+	rem = os.listdir(path="..\direct\input")
+	for i in range(0, len(rem)):
+		os.remove('..\direct\input\\' + rem[i])
+
 	if (request.method == "POST"):
 		if request.files:
 			if not allowed(request.files['file'].filename):
 				print('forbidden extension')
 				return redirect(request.url)
 
+			file = request.files['file']
+			file.save(os.path.join(app.config["FILES_UPLOAD"], file.filename))
+			print('saved')
+			path = '..\direct\input\\' + str(request.files['file'].filename)
+			text = codecs.open(path, "r", encoding="utf-8", errors="ignore")
+			text = text.read()
 			file_name = str(request.files['file'].filename).rsplit(".", 1)[0]
-			text = str(request.files['file'])
 			process(text,file_name)
 			print('done')
 
@@ -81,6 +63,31 @@ def index():
 								   as_attachment=True)
 
 	return render_template("index.html")
+
+def process(text,file_name):
+	d0, n0 = direct_non_direct_two_signs(text)
+
+	text = cleaner(n0)
+
+	# Прогоняет 5 раз по регексу
+	res_direct = []
+	res_non_direct = []
+
+	d, n = direct_non_direct_two_signs(text)
+	d1, n1 = direct_non_direct_two_signs(n)
+	d2, n2 = direct_non_direct_two_signs(n1)
+	d3, n3 = direct_non_direct_one_sign(n2)
+
+	res_direct = d0 + d + d1 + d2 + d3
+	res_non_direct = n3
+
+	# Выдает 20 предположительных выбросов по длине
+	text_outliers = get_outliers(res_direct)
+
+	write_file_direct(res_direct, file_name)
+	write_file_non_direct(res_non_direct, file_name)
+	write_file_outlier(text_outliers, file_name)
+
 
 def cleaner(text):
 	text = '  ' + text
@@ -120,22 +127,22 @@ def get_outliers(res_direct):
 
 def write_file_direct(text, name):
 	file_name = '..\direct\output\direct_{}.txt'.format(name)
-	file = open(file_name, 'w+')
+	file = open(file_name, 'w+',errors="ignore")
 	file.write(str(text[:]))
 	file.close()
 
 def write_file_non_direct(text, name):
 	file_name = '..\direct\output\\non_direct_{}.txt'.format(name)
-	file = open(file_name, 'w+')
+	file = open(file_name, 'w+',errors="ignore")
 	file.write(text)
 	file.close()
 
 def write_file_outlier(text, name):
 	file_name = '..\direct\output\outliers_{}.txt'.format(name)
-	file = open(file_name, 'w+')
+	file = open(file_name, 'w+',errors="ignore")
 	file.write(str(text[:]))
 	file.close()
 
 if __name__ == '__main__':
-	app.run(debug=True)
+	app.run(debug=False)
 
